@@ -3,13 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        /* ... (ملفات CSS التي أرسلتها سابقاً بدون تغيير) ... */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box
         }
-        /* ... (بقيه أكواد CSS) ... */
+        body {
+            font-family: 'Cairo', 'Segoe UI', sans-serif;
+            padding: 20px
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #121212;
+                color: #e0e0e0
+            }
+
+            .date-filter, .league-filter, .match-card {
+                background: #1e1e1e;
+                color: #e0e0e0
+            }
+
+            .league-filter {
+                border: 1px solid #333
+            }
+
+            .skeleton-line {
+                background: #333
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            body {
+                background: #f5f5f5;
+                color: #222
+            }
+
+            .date-filter, .league-filter, .match-card {
+                background: #fff;
+                color: #222
+            }
+
+            .league-filter {
+                border: 1px solid #ccc
+            }
+
+            .skeleton-line {
+                background: #ddd
+            }
+        }
+
+        .matches-widget {
+            max-width: 800px;
+            margin: 0 auto
+        }
+
+        .date-filter {
+            display: flex;
+            border-radius: 8px;
+            padding: 6px;
+            margin-bottom: 20px;
+            gap: 6px;
+            overflow-x: auto
+        }
+
+        .date-filter button {
+            flex: 1;
+            background: 0 0;
+            border: none;
+            color: inherit;
+            padding: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 6px;
+            transition: .3s;
+            white-space: nowrap
+        }
+
+        .date-filter button.active {
+            background: #FFA726;
+            color: #121212
+        }
+
+        .league-filter {
+            max-width: 200px;
+            margin: 0 0 20px auto;
+            display: block;
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px
+        }
+
+        .matches-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        .match-card {
+            border-radius: 12px;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            grid-template-areas: "header header header" "team1 center team2";
+            align-items: center;
+            gap: 12px;
+            transition: .2s
+        }
+
+        .match-card:hover {
+            transform: translateY(-2px)
+        }
+
+        .match-header {
+            grid-area: header;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+            margin-bottom: 8px
+        }
+
+        .league-name {
+            font-size: 12px;
+            font-weight: 700
+        }
+
+        .team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            text-align: center
+        }
+
+        .team.home {
+            grid-area: team1
+        }
+
+        .team.away {
+            grid-area: team2
+        }
+
+        .team-name {
+            font-size: 14px;
+            font-weight: 700
+        }
+
+        .team-logo {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #333;
+            padding: 2px
+        }
+
+        .match-center {
+            grid-area: center;
+            text-align: center
+        }
+
+        .score {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 5px 0
+        }
+
+        .center-time {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 5px 0
+        }
+
+        .status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700
+        }
+
+        .status-live {
+            background: #d32f2f;
+            color: #fff
+        }
+
+        .status-finished {
+            background: #424242;
+            color: #bdbdbd
+        }
+
+        .status-upcoming {
+            background: #388e3c;
+            color: #fff
+        }
+
+        .load-more, .load-less {
+            background: #FFA726;
+            color: #121212;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 10px auto;
+            display: block
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 16px
+        }
+
+        .error {
+            text-align: center;
+            padding: 30px;
+            color: #e74c3c;
+            background: #2c1e1e;
+            border-radius: 8px;
+            margin: 10px 0
+        }
+
+        .skeleton {
+            opacity: .7;
+            animation: pulse 1.5s infinite
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: .7
+            }
+            50% {
+                opacity: .9
+            }
+        }
+
+        .skeleton-line {
+            border-radius: 4px;
+            margin: 4px 0
+        }
+
+        @media (max-width: 480px) {
+            .team-name {
+                font-size: 12px
+            }
+
+            .score {
+                font-size: 18px
+            }
+
+            .team-logo {
+                width: 35px;
+                height: 35px
+            }
+
+            .center-time {
+                font-size: 16px
+            }
+        }
     </style>
 </head>
 <body>
@@ -65,12 +319,12 @@
                 today.setHours(0, 0, 0, 0);
                 
                 let filtered = a.filter(m => {
-                    // 🛑 التصحيح الحاسم: تحويل تنسيق التاريخ ليتمكن المتصفح من قراءته
-                    // يقوم بتحويل "YYYY-MM-DD HH:MM" إلى "YYYY-MM-DDT HH:MM:00"
-                    const isoDate = m.date.replace(/(\d+)-(\d+)-(\d+)\s(\d+:\d+)/, '$1-$2-$3T$4:00'); 
-                    const md = new Date(isoDate);
-
-                    if (isNaN(md.getTime())) return !1; // استخدام .getTime() للتحقق من الصلاحية
+                    // 🛑 التصحيح النهائي والحاسم لقراءة التواريخ من Google Sheets:
+                    // تحويل "YYYY-MM-DD HH:MM" إلى "YYYY/MM/DD HH:MM" ليتم قراءته
+                    const dateString = m.date.replace(/-/g, '/');
+                    const md = new Date(dateString); 
+                    
+                    if (isNaN(md.getTime())) return !1; // التأكد من أن التاريخ صالح
                     
                     md.setHours(0, 0, 0, 0);
                     const diff = Math.round((md - today) / (1e3 * 60 * 60 * 24));
@@ -90,7 +344,6 @@
             }
             
             function L(m) {
-                // ... (بقيه الكود لإنشاء بطاقات المباريات بدون تغيير) ...
                 c.innerHTML = "";
                 m.forEach(m => {
                     const card = document.createElement("div");
@@ -98,8 +351,11 @@
                     card.id = `match-${m.matchId}`; 
                     
                     card.className = "match-card";
-                    const md = new Date(m.date),
-                        timeString = md.toLocaleTimeString("ar-EG", {
+                    // 🛑 تصحيح قراءة التاريخ عند عرض الوقت أيضًا
+                    const dateString = m.date.replace(/-/g, '/');
+                    const md = new Date(dateString); 
+                    
+                    const timeString = md.toLocaleTimeString("ar-EG", {
                             hour: "2-digit",
                             minute: "2-digit"
                         });
@@ -123,7 +379,6 @@
                 })
             }
             
-            // دالة تحديث النتائج في صفحة HTML
             function updateDOMWithMatchData(matches) {
                 matches.forEach(match => {
                     const scoreElement = document.getElementById(`score-${match.matchId}`);
@@ -156,7 +411,7 @@
 
             // الدالة الرئيسية لجلب البيانات من matches.json
             function fetchAndUpdateMatches() {
-                // 🛑 هذا المسار صحيح: '/matches.json'
+                // المسار صحيح: '/matches.json'
                 fetch('/matches.json?t=' + new Date().getTime()) 
                     .then(response => {
                         if (!response.ok) {
