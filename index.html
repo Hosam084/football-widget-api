@@ -1,446 +1,174 @@
-<!doctype html>
-<html lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box
-        }
-        body {
-            font-family: 'Cairo', 'Segoe UI', sans-serif;
-            padding: 20px
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const c = document.getElementById("matchesContainer"),
+            d = document.querySelector(".date-filter"),
+            f = document.getElementById("leagueFilter");
+
+        let g = "today",
+            a = []; 
+
+        // 🛠️ دالة قراءة التاريخ بصيغة MM/DD/YYYY HH:MM
+        function parseDate(dateStr) {
+            const [d, t] = dateStr.split(" ");
+            const [month, day, year] = d.split("/");
+            return new Date(`${year}-${month}-${day}T${t}:00`);
         }
 
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: #121212;
-                color: #e0e0e0
+        function p(m) {
+            const l = [...new Set(m.map(i => i.league).filter(l => l && l.trim() !== ''))];
+            f.innerHTML = '<option value="all">كل الدوريات</option>';
+            l.forEach(l => {
+                const opt = document.createElement("option");
+                opt.value = l;
+                opt.textContent = l;
+                f.appendChild(opt)
+            })
+        }
+
+        d.addEventListener("click", function (e) {
+            if (e.target.tagName === "BUTTON") {
+                document.querySelectorAll(".date-filter button").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+                g = e.target.dataset.day;
+                h()
             }
+        });
+        f.addEventListener("change", () => h());
 
-            .date-filter, .league-filter, .match-card {
-                background: #1e1e1e;
-                color: #e0e0e0
+        function h() {
+            if (a.length === 0) {
+                c.innerHTML = '<div class="loading">جاري تحميل المباريات...</div>';
+                return
             }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-            .league-filter {
-                border: 1px solid #333
-            }
+            let filtered = a.filter(m => {
+                const md = parseDate(m.date);
+                if (isNaN(md.getTime())) return !1;
 
-            .skeleton-line {
-                background: #333
-            }
-        }
-
-        @media (prefers-color-scheme: light) {
-            body {
-                background: #f5f5f5;
-                color: #222
-            }
-
-            .date-filter, .league-filter, .match-card {
-                background: #fff;
-                color: #222
-            }
-
-            .league-filter {
-                border: 1px solid #ccc
-            }
-
-            .skeleton-line {
-                background: #ddd
-            }
-        }
-
-        .matches-widget {
-            max-width: 800px;
-            margin: 0 auto
-        }
-
-        .date-filter {
-            display: flex;
-            border-radius: 8px;
-            padding: 6px;
-            margin-bottom: 20px;
-            gap: 6px;
-            overflow-x: auto
-        }
-
-        .date-filter button {
-            flex: 1;
-            background: 0 0;
-            border: none;
-            color: inherit;
-            padding: 12px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-            border-radius: 6px;
-            transition: .3s;
-            white-space: nowrap
-        }
-
-        .date-filter button.active {
-            background: #FFA726;
-            color: #121212
-        }
-
-        .league-filter {
-            max-width: 200px;
-            margin: 0 0 20px auto;
-            display: block;
-            width: 100%;
-            padding: 8px;
-            border-radius: 6px
-        }
-
-        .matches-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px
-        }
-
-        .match-card {
-            border-radius: 12px;
-            padding: 15px;
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            grid-template-areas: "header header header" "team1 center team2";
-            align-items: center;
-            gap: 12px;
-            transition: .2s
-        }
-
-        .match-card:hover {
-            transform: translateY(-2px)
-        }
-
-        .match-header {
-            grid-area: header;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #333;
-            padding-bottom: 8px;
-            margin-bottom: 8px
-        }
-
-        .league-name {
-            font-size: 12px;
-            font-weight: 700
-        }
-
-        .team {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            text-align: center
-        }
-
-        .team.home {
-            grid-area: team1
-        }
-
-        .team.away {
-            grid-area: team2
-        }
-
-        .team-name {
-            font-size: 14px;
-            font-weight: 700
-        }
-
-        .team-logo {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #333;
-            padding: 2px
-        }
-
-        .match-center {
-            grid-area: center;
-            text-align: center
-        }
-
-        .score {
-            font-size: 22px;
-            font-weight: 700;
-            margin: 5px 0
-        }
-
-        .center-time {
-            font-size: 18px;
-            font-weight: 700;
-            margin: 5px 0
-        }
-
-        .status {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 700
-        }
-
-        .status-live {
-            background: #d32f2f;
-            color: #fff
-        }
-
-        .status-finished {
-            background: #424242;
-            color: #bdbdbd
-        }
-
-        .status-upcoming {
-            background: #388e3c;
-            color: #fff
-        }
-
-        .load-more, .load-less {
-            background: #FFA726;
-            color: #121212;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 700;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 16px
-        }
-
-        .error {
-            text-align: center;
-            padding: 30px;
-            color: #e74c3c;
-            background: #2c1e1e;
-            border-radius: 8px;
-            margin: 10px 0
-        }
-
-        .skeleton {
-            opacity: .7;
-            animation: pulse 1.5s infinite
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                opacity: .7
-            }
-            50% {
-                opacity: .9
-            }
-        }
-
-        .skeleton-line {
-            border-radius: 4px;
-            margin: 4px 0
-        }
-
-        @media (max-width: 480px) {
-            .team-name {
-                font-size: 12px
-            }
-
-            .score {
-                font-size: 18px
-            }
-
-            .team-logo {
-                width: 35px;
-                height: 35px
-            }
-
-            .center-time {
-                font-size: 16px
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="matches-widget">
-        <div class="date-filter">
-            <button data-day="yesterday">أمس</button>
-            <button class="active" data-day="today">اليوم</button>
-            <button data-day="tomorrow">غداً</button>
-        </div>
-        <select id="leagueFilter" class="league-filter">
-            <option value="all">كل الدوريات</option>
-        </select>
-        <div class="matches-container" id="matchesContainer"></div>
-    </div>
-    
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const c = document.getElementById("matchesContainer"),
-                d = document.querySelector(".date-filter"),
-                f = document.getElementById("leagueFilter");
-            
-            let g = "today",
-                a = []; 
-
-            function p(m) {
-                const l = [...new Set(m.map(i => i.league).filter(l => l && l.trim() !== ''))];
-                f.innerHTML = '<option value="all">كل الدوريات</option>';
-                l.forEach(l => {
-                    const opt = document.createElement("option");
-                    opt.value = l;
-                    opt.textContent = l;
-                    f.appendChild(opt)
-                })
-            }
-            
-            d.addEventListener("click", function (e) {
-                if (e.target.tagName === "BUTTON") {
-                    document.querySelectorAll(".date-filter button").forEach(b => b.classList.remove("active"));
-                    e.target.classList.add("active");
-                    g = e.target.dataset.day;
-                    h()
-                }
+                md.setHours(0, 0, 0, 0);
+                const diff = Math.round((md - today) / (1e3 * 60 * 60 * 24));
+                if (g === "today") return diff === 0;
+                if (g === "yesterday") return diff === -1;
+                if (g === "tomorrow") return diff === 1;
+                return !1
             });
-            f.addEventListener("change", () => h());
 
-            // دالة فلترة وعرض المباريات (مع تصحيح قراءة التاريخ)
-            function h() {
-                if (a.length === 0) {
-                    c.innerHTML = '<div class="loading">جاري تحميل المباريات...</div>';
-                    return
-                }
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                let filtered = a.filter(m => {
-                    // 🛑 التصحيح النهائي والحاسم لقراءة التواريخ من Google Sheets:
-                    // تحويل "YYYY-MM-DD HH:MM" إلى "YYYY/MM/DD HH:MM" ليتم قراءته
-                    const dateString = m.date.replace(/-/g, '/');
-                    const md = new Date(dateString); 
-                    
-                    if (isNaN(md.getTime())) return !1; // التأكد من أن التاريخ صالح
-                    
-                    md.setHours(0, 0, 0, 0);
-                    const diff = Math.round((md - today) / (1e3 * 60 * 60 * 24));
-                    if (g === "today") return diff === 0;
-                    if (g === "yesterday") return diff === -1;
-                    if (g === "tomorrow") return diff === 1;
-                    return !1
-                });
-                
-                if (f.value !== "all") filtered = filtered.filter(m => m.league === f.value);
-                if (filtered.length === 0) {
-                    c.innerHTML = '<div class="loading">لا توجد مباريات</div>';
-                    return
-                }
-                const sorted = filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-                L(sorted)
+            if (f.value !== "all") filtered = filtered.filter(m => m.league === f.value);
+            if (filtered.length === 0) {
+                c.innerHTML = '<div class="loading">لا توجد مباريات</div>';
+                return
             }
-            
-            function L(m) {
-                c.innerHTML = "";
-                m.forEach(m => {
-                    const card = document.createElement("div");
-                    
-                    card.id = `match-${m.matchId}`; 
-                    
-                    card.className = "match-card";
-                    // 🛑 تصحيح قراءة التاريخ عند عرض الوقت أيضًا
-                    const dateString = m.date.replace(/-/g, '/');
-                    const md = new Date(dateString); 
-                    
-                    const timeString = md.toLocaleTimeString("ar-EG", {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                        });
-                    let statusClass, statusText, centerContent;
-                    const status = (m.status || "").trim().toLowerCase();
-                    if (status.includes("مباشر")) {
+            const sorted = filtered.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+            L(sorted)
+        }
+
+        function L(m) {
+            c.innerHTML = "";
+            m.forEach(m => {
+                const card = document.createElement("div");
+                card.id = `match-${m.matchId}`;
+                card.className = "match-card";
+
+                const md = parseDate(m.date);
+                const timeString = md.toLocaleTimeString("ar-EG", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+
+                let statusClass, statusText, centerContent;
+                const status = (m.status || "").trim().toLowerCase();
+
+                if (status.includes("مباشر")) {
+                    statusClass = "status-live";
+                    statusText = "مباشر";
+                    centerContent = `<div class="score" id="score-${m.matchId}">${m.scoreHome||"0"} - ${m.scoreAway||"0"}</div>`;
+                } else if (status.includes("انتهت") || status.includes("finished") || status.includes("ft")) {
+                    statusClass = "status-finished";
+                    statusText = "انتهت";
+                    centerContent = `<div class="score" id="score-${m.matchId}">${m.scoreHome||"0"} - ${m.scoreAway||"0"}</div>`;
+                } else {
+                    statusClass = "status-upcoming";
+                    statusText = "لم تبدأ";
+                    centerContent = `<div class="center-time">${timeString}</div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="match-header">
+                        <span class="league-name">${m.league}</span>
+                    </div>
+                    <div class="team home">
+                        ${m.homeLogo?`<img src="${m.homeLogo}" class="team-logo">`:``}
+                        <span class="team-name">${m.homeTeam}</span>
+                    </div>
+                    <div class="match-center">
+                        <div class="status ${statusClass}" id="status-${m.matchId}">${statusText}</div>
+                        ${centerContent}
+                    </div>
+                    <div class="team away">
+                        ${m.awayLogo?`<img src="${m.awayLogo}" class="team-logo">`:``}
+                        <span class="team-name">${m.awayTeam}</span>
+                    </div>`;
+                c.appendChild(card)
+            })
+        }
+
+        function updateDOMWithMatchData(matches) {
+            matches.forEach(match => {
+                const scoreElement = document.getElementById(`score-${match.matchId}`);
+                const statusElement = document.getElementById(`status-${match.matchId}`);
+
+                if (scoreElement) {
+                    scoreElement.textContent = `${match.scoreHome} - ${match.scoreAway}`;
+                }
+
+                if (statusElement) {
+                    const status = (match.status || "").trim().toLowerCase();
+                    let statusClass, statusText;
+
+                    if(status.includes("مباشر")) {
                         statusClass = "status-live";
                         statusText = "مباشر";
-                        centerContent = `<div class="score" id="score-${m.matchId}">${m.scoreHome||"0"} - ${m.scoreAway||"0"}</div>`
                     } else if (status.includes("انتهت") || status.includes("finished") || status.includes("ft")) {
                         statusClass = "status-finished";
                         statusText = "انتهت";
-                        centerContent = `<div class="score" id="score-${m.matchId}">${m.scoreHome||"0"} - ${m.scoreAway||"0"}</div>`
                     } else {
                         statusClass = "status-upcoming";
                         statusText = "لم تبدأ";
-                        centerContent = `<div class="center-time">${timeString}</div>`
                     }
-                    card.innerHTML = `<div class="match-header"><span class="league-name">${m.league}</span></div><div class="team home">${m.homeLogo?`<img src="${m.homeLogo}" class="team-logo">`:``}<span class="team-name">${m.homeTeam}</span></div><div class="match-center"><div class="status ${statusClass}" id="status-${m.matchId}">${statusText}</div>${centerContent}</div><div class="team away">${m.awayLogo?`<img src="${m.awayLogo}" class="team-logo">`:``}<span class="team-name">${m.awayTeam}</span></div>`;
-                    c.appendChild(card)
-                })
-            }
-            
-            function updateDOMWithMatchData(matches) {
-                matches.forEach(match => {
-                    const scoreElement = document.getElementById(`score-${match.matchId}`);
-                    const statusElement = document.getElementById(`status-${match.matchId}`);
 
-                    if (scoreElement) {
-                        scoreElement.textContent = `${match.scoreHome} - ${match.scoreAway}`;
+                    statusElement.textContent = statusText;
+                    statusElement.className = `status ${statusClass}`;
+                }
+            });
+        }
+
+        function fetchAndUpdateMatches() {
+            fetch('/matches.json?t=' + new Date().getTime()) 
+                .then(response => {
+                    if (!response.ok) throw new Error("فشل في جلب البيانات");
+                    return response.json();
+                })
+                .then(data => {
+                    if (a.length === 0) {
+                        a = data; 
+                        p(a);    
+                        h();     
+                    } else {
+                        updateDOMWithMatchData(data);
+                        a = data; 
                     }
-                    
-                    if (statusElement) {
-                         const status = (match.status || "").trim().toLowerCase();
-                         let statusClass, statusText;
-                         
-                         if(status.includes("مباشر")) {
-                            statusClass = "status-live";
-                            statusText = "مباشر";
-                         } else if (status.includes("انتهت") || status.includes("finished") || status.includes("ft")) {
-                            statusClass = "status-finished";
-                            statusText = "انتهت";
-                         } else {
-                            statusClass = "status-upcoming";
-                            statusText = "لم تبدأ";
-                         }
-                         
-                         statusElement.textContent = statusText;
-                         statusElement.className = `status ${statusClass}`;
+                })
+                .catch(error => {
+                    console.error("Error during live update:", error);
+                    if (a.length === 0) {
+                        c.innerHTML = '<div class="error">فشل في تحميل البيانات. يرجى المحاولة لاحقاً.</div>';
                     }
                 });
-            }
+        }
 
-            // الدالة الرئيسية لجلب البيانات من matches.json
-            function fetchAndUpdateMatches() {
-                // المسار صحيح: '/matches.json'
-                fetch('/matches.json?t=' + new Date().getTime()) 
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error("فشل في جلب البيانات");
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (a.length === 0) {
-                             a = data; 
-                             p(a);    
-                             h();     
-                        } else {
-                            updateDOMWithMatchData(data);
-                            a = data; 
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error during live update:", error);
-                        if (a.length === 0) {
-                            c.innerHTML = '<div class="error">فشل في تحميل البيانات. يرجى المحاولة لاحقاً.</div>';
-                        }
-                    });
-            }
-            
-            fetchAndUpdateMatches();
-            setInterval(fetchAndUpdateMatches, 30000); 
-
-        });
-    </script>
-</body>
-</html>
+        fetchAndUpdateMatches();
+        setInterval(fetchAndUpdateMatches, 30000);
+    });
+                </script>
