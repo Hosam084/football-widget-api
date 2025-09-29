@@ -1,0 +1,8 @@
+{
+  "name": "matches-api-widget",
+  "version": "1.0.0",
+  "description": "API for fetching match data",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}
