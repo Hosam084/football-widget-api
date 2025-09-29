@@ -5,10 +5,12 @@ const fs = require('fs');
 const path = require('path');
 
 // =========================================================================
-// 🛑 تأكد أن هذا الرابط هو رابط Google Sheet الصحيح الذي يعمل لديك!
+// 🛑 الرابط الصحيح (تم تعديله ليتناسب مع نموذج التصدير JSON)
 // =========================================================================
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT82iOdGJcS7-3Osrsuh2WTO8tc6NWn5EWw0qLNsiy2F7-g5xrz-E5MUwKIWMlOxSLHh2OEFEme3zef/pub?gid=2101882'; 
-// (يرجى استبدال هذا برابط جدول البيانات الخاص بك)
+const SPREADSHEET_ID = '19YowWyLXXR5nLFhjgSIL95wakSGZVJzXUrUi-afWDjE';
+const SHEET_NAME = 'SoccerMatches'; // اسم الورقة (كما ظهر في صورتك: SoccerMatches)
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+
 
 async function fetchAndBuildData() {
     console.log('Starting data fetch and build process...');
@@ -16,27 +18,36 @@ async function fetchAndBuildData() {
     try {
         // 1. جلب البيانات من Google Sheet
         const response = await fetch(SHEET_URL);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch data: ${response.statusText}`);
-        }
-        const data = await response.json();
         
-        // 2. معالجة البيانات (نفس الكود القديم يعمل هنا)
-        const matches = data.feed.entry.map(item => ({
-            matchId: item.gsx$matchid.$t,
-            date: item.gsx$date.$t,
-            league: item.gsx$league.$t,
-            homeTeam: item.gsx$hometeam.$t,
-            homeLogo: item.gsx$homelogo.$t,
-            scoreHome: item.gsx$scorehome.$t,
-            scoreAway: item.gsx$scoreaway.$t,
-            awayTeam: item.gsx$awayteam.$t,
-            awayLogo: item.gsx$awaylogo.$t,
-            status: item.gsx$status.$t,
-        }));
+        // 🛑 معالجة استجابة جوجل شييت (لإزالة الأجزاء غير الضرورية)
+        const text = await response.text();
+        const jsonText = text.replace('/*O_o*/\ngoogle.visualization.Query.setResponse(', '').slice(0, -2);
+        const data = JSON.parse(jsonText);
+
+        // 2. معالجة البيانات وتحويلها إلى الهيكل الذي يحتاجه الويجت (Widget)
+        const rows = data.table.rows;
+        const cols = data.table.cols.map(c => c.label);
+
+        const matches = rows.map(row => {
+            const rowData = row.c.map(cell => (cell && cell.v !== undefined) ? cell.v : '');
+            
+            // يجب أن تتأكد أن ترتيب الأعمدة يطابق ملف الشيت لديك
+            return {
+                matchId: rowData[0], 
+                date: rowData[1], 
+                league: rowData[2], 
+                homeTeam: rowData[3], 
+                homeLogo: rowData[4],
+                scoreHome: rowData[5],
+                scoreAway: rowData[6],
+                awayTeam: rowData[7],
+                awayLogo: rowData[8],
+                status: rowData[9],
+            };
+        });
 
         // 3. حفظ البيانات كملف JSON في المجلد الرئيسي (الجذر)
-        // __dirname هو مجلد netlify/functions، لذا نرجع خطوتين للخلف للوصول إلى الجذر
+        // هذا يحل مشكلة مسار الحفظ (Publish directory)
         const filePath = path.join(__dirname, '../../matches.json');
         
         fs.writeFileSync(filePath, JSON.stringify(matches, null, 2));
@@ -45,8 +56,7 @@ async function fetchAndBuildData() {
 
     } catch (error) {
         console.error('❌ FATAL BUILD ERROR:', error.message);
-        // نُعيد رمز خروج (exit code) غير صفري للتسبب في فشل البناء
-        // هذا أمر جيد حتى لا يتم نشر نسخة قديمة أو معطلة من الموقع
+        console.error('❌ CHECK THE GOOGLE SHEET URL AND ACCESS PERMISSIONS.');
         process.exit(1);
     }
 }
