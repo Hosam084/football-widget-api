@@ -2,10 +2,6 @@
   "name": "football-widget-api",
   "version": "1.0.0",
   "description": "Widget to fetch and display football match data.",
-  "main": "index.html",
-  "scripts": {
-    "start": "node netlify/functions/build-data.js"
-  },
   "dependencies": {
     "node-fetch": "^2.6.1"
   }
