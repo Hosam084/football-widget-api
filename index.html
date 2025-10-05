@@ -1,0 +1,286 @@
+ <!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matches Widget</title>
+    <style>
+        /* --- CSS Variables (Theme Colors) --- */
+        :root {
+            /* Light Mode Colors (Default) */
+            --bg-primary: #f0f2f5;
+            --bg-secondary: #e4e6eb;
+            --card-bg: #ffffff;
+            --border-color: #dcdfe3;
+            --text-primary: #1c1e21;
+            --text-secondary: #606770;
+            --accent-color: #1877f2;
+            --green: #42b72a;
+            --red: #fa383e;
+            --grey: #8a8d91;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark Mode Colors */
+                --bg-primary: #121212;
+                --bg-secondary: #1e1e1e;
+                --card-bg: #282828;
+                --border-color: #3a3a3a;
+                --text-primary: #e0e0e0;
+                --text-secondary: #aaa;
+                --accent-color: #5aa6e8;
+                --green: #5cb85c;
+                --red: #e74c3c;
+                --grey: #5e5e5e;
+            }
+        }
+        
+        /* --- General Styles --- */
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .matches-widget {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .matches-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* --- Tabs --- */
+        .tabs-header {
+            display: flex;
+            margin-bottom: 10px;
+            background: var(--card-bg); 
+            border-radius: 6px;
+            padding: 5px;
+            border: 1px solid var(--border-color);
+        }
+        .tab-button {
+            background: none; border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 15px; font-weight: 700;
+            padding: 8px 0; cursor: pointer;
+            flex-grow: 1; text-align: center;
+            border-radius: 4px; transition: all 0.2s;
+        }
+        .tab-button.active {
+            background: var(--accent-color); 
+            color: white;
+        }
+
+        /* --- Match Card --- */
+        .match-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 10px 15px;
+            display: grid;
+            grid-template-columns: 1fr 100px 1fr; 
+            align-items: center; gap: 5px;
+            position: relative; padding-top: 45px;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .match-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .match-header {
+            position: absolute; top: 0; left: 0; right: 0;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; padding: 5px 15px; 
+            border-bottom: 1px solid var(--border-color); 
+            background: var(--bg-secondary); 
+            border-radius: 6px 6px 0 0;
+            color: var(--text-secondary);
+        }
+        .league-name { font-weight: 700; }
+        .details-link { color: var(--accent-color); font-weight: 700; cursor: pointer; }
+        
+        /* --- Team Info --- */
+        .team { display: flex; flex-direction: column; gap: 5px; text-align: center; }
+        .team.home { align-items: flex-end; }
+        .team.away { align-items: flex-start; }
+        .team-name { font-size: 14px; font-weight: bold; }
+        .team-logo { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; }
+        .team-content { display: flex; align-items: center; gap: 8px; }
+        .team.home .team-content { flex-direction: row-reverse; }
+        
+        /* --- Center Section (Score/Time) --- */
+        .match-center { text-align: center; }
+        .status {
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 700;
+            margin-bottom: 5px; display: inline-block; color: white;
+        }
+        .status.finished { background-color: var(--grey); }
+        .status.not-started { background-color: var(--green); }
+        .status.in-play { background-color: var(--red); }
+        .score, .center-time { font-size: 20px; font-weight: 700; margin: 5px 0; color: var(--text-primary); }
+        
+        /* --- Collapsible Details --- */
+        .details-info {
+            grid-column: 1 / -1; text-align: center;
+            font-size: 12px; color: var(--text-secondary);
+            padding-top: 10px; border-top: 1px solid var(--border-color);
+            margin-top: 5px; display: none;
+        }
+        .details-info.show { display: block; }
+        
+        /* --- Utility Classes --- */
+        .loading, .error { text-align: center; padding: 40px; font-size: 16px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+<div class="matches-widget">
+    <div class="tabs-header">
+        <button class="tab-button" data-day="yesterday">أمس</button>
+        <button class="tab-button active" data-day="today">اليوم</button>
+        <button class="tab-button" data-day="tomorrow">غدًا</button>
+    </div>
+    <div class="matches-container" id="matchesContainer">
+        <div class="loading">جاري تحميل المباريات...</div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const API_URL = 'https://my-matches-proxy.hossamadel084.workers.dev/';
+    const container = document.getElementById("matchesContainer");
+    const tabsContainer = document.querySelector(".tabs-header");
+
+    const getTargetDate = (dayType) => {
+        const date = new Date();
+        if (dayType === 'yesterday') date.setDate(date.getDate() - 1);
+        if (dayType === 'tomorrow') date.setDate(date.getDate() + 1);
+        return date;
+    };
+
+    const renderMatches = (matches) => {
+        container.innerHTML = '';
+        if (!matches || matches.length === 0) {
+            container.innerHTML = '<div class="loading">لا توجد مباريات في هذا اليوم.</div>';
+            return;
+        }
+
+        matches.forEach((m, index) => {
+            const homeName = m.homeTeam.name || 'الفريق المضيف';
+            const awayName = m.awayTeam.name || 'الفريق الضيف';
+            
+            // Fallback for missing logos
+            const homeLogo = m.homeTeam.crest || `https://ui-avatars.com/api/?name=${encodeURIComponent(homeName)}&background=random&color=fff`;
+            const awayLogo = m.awayTeam.crest || `https://ui-avatars.com/api/?name=${encodeURIComponent(awayName)}&background=random&color=fff`;
+
+            let statusText, statusClass, centerContent;
+            
+            switch (m.status) {
+                case 'FINISHED':
+                    statusText = 'انتهت'; statusClass = 'finished';
+                    centerContent = `<div class="score">${m.score.fullTime.home ?? 0} - ${m.score.fullTime.away ?? 0}</div>`;
+                    break;
+                case 'IN_PLAY':
+                case 'PAUSED':
+                case 'HALF_TIME':
+                    statusText = (m.status === 'HALF_TIME' ? 'استراحة' : 'مباشر'); statusClass = 'in-play';
+                    centerContent = `<div class="score">${m.score.fullTime.home ?? 0} - ${m.score.fullTime.away ?? 0}</div>`;
+                    break;
+                default:
+                    statusText = 'لم تبدأ'; statusClass = 'not-started';
+                    const matchTime = new Date(m.utcDate).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' });
+                    centerContent = `<div class="center-time">${matchTime}</div>`;
+                    break;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'match-card';
+            card.innerHTML = `
+                <div class="match-header">
+                    <span class="league-name">${m.competition.name || 'مباراة ودية'}</span>
+                    <span class="details-link" data-details-id="details-${index}">تفاصيل</span>
+                </div>
+                <div class="team home">
+                    <div class="team-content">
+                        <img src="${homeLogo}" class="team-logo" alt="شعار ${homeName}">
+                        <span class="team-name">${homeName}</span>
+                    </div>
+                </div>
+                <div class="match-center">
+                    <div class="status ${statusClass}">${statusText}</div>
+                    ${centerContent}
+                </div>
+                <div class="team away">
+                    <div class="team-content">
+                        <img src="${awayLogo}" class="team-logo" alt="شعار ${awayName}">
+                        <span class="team-name">${awayName}</span>
+                    </div>
+                </div>
+                <div class="details-info" id="details-${index}">
+                    الملعب: ${m.venue || 'غير محدد'} | الجولة: ${m.matchday || 'N/A'}
+                </div>`;
+            container.appendChild(card);
+        });
+    };
+
+    const loadMatches = async (dayType = 'today', showLoading = true) => {
+        if (showLoading) container.innerHTML = '<div class="loading">جاري تحديث المباريات...</div>';
+        
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.day === dayType);
+        });
+
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('فشل تحميل البيانات من الخادم');
+            
+            const data = await response.json();
+            const targetDate = getTargetDate(dayType);
+            
+            const filteredMatches = data.matches.filter(m => {
+                const matchDate = new Date(m.utcDate);
+                return matchDate.getFullYear() === targetDate.getFullYear() &&
+                       matchDate.getMonth() === targetDate.getMonth() &&
+                       matchDate.getDate() === targetDate.getDate();
+            });
+            renderMatches(filteredMatches);
+        } catch (error) {
+            container.innerHTML = `<div class="error">حدث خطأ: ${error.message}</div>`;
+        }
+    };
+
+    tabsContainer.addEventListener('click', (e) => {
+        if (e.target.matches('.tab-button')) {
+            loadMatches(e.target.dataset.day);
+        }
+    });
+
+    container.addEventListener('click', (e) => {
+        if (e.target.matches('.details-link')) {
+            const detailsId = e.target.dataset.detailsId;
+            const detailsDiv = document.getElementById(detailsId);
+            if (detailsDiv) {
+                const isShown = detailsDiv.classList.toggle('show');
+                e.target.textContent = isShown ? 'إخفاء' : 'تفاصيل';
+            }
+        }
+    });
+
+    loadMatches('today');
+
+    setInterval(() => {
+        if (document.querySelector('.tab-button[data-day="today"].active')) {
+            loadMatches('today', false);
+        }
+    }, 60000);
+});
+</script>
+
+</body>
+</html>
